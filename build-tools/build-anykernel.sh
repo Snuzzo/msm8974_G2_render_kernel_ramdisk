@@ -17,6 +17,7 @@ clear
 THREAD="-j$(grep -c ^processor /proc/cpuinfo)"
 KERNEL="zImage"
 DTBIMAGE="dtb"
+CURRENTDATE=$(date +"%m-%d")
 
 # Kernel Details
 VER=Render-Kernel
@@ -50,37 +51,37 @@ case "$choice" in
 	"d800")
 		variant="d800"
 		config="d800_defconfig"
-		ramdisk=$BUILD_TOP/ramdisk/ramdisk/d800.lz4
+		#ramdisk=$BUILD_TOP/ramdisk/ramdisk/d800.lz4
 		break;;
 	"d801")
 		variant="d801"
 		config="d801_defconfig"
-		ramdisk=$BUILD_TOP/ramdisk/ramdisk/d801.lz4
+		#ramdisk=$BUILD_TOP/ramdisk/ramdisk/d801.lz4
 		break;;
 	"d802")
 		variant="d802"
 		config="d802_defconfig"
-		ramdisk=$BUILD_TOP/ramdisk/ramdisk/d802.lz4
+		#ramdisk=$BUILD_TOP/ramdisk/ramdisk/d802.lz4
 		break;;
 	"d803")
 		variant="d803"
 		config="d803_defconfig"
-		ramdisk=$BUILD_TOP/ramdisk/ramdisk/d803.lz4
+		#ramdisk=$BUILD_TOP/ramdisk/ramdisk/d803.lz4
 		break;;
 	"ls980")
 		variant="ls980"
 		config="ls980_defconfig"
-		ramdisk=$BUILD_TOP/ramdisk/ramdisk/ls980.lz4
+		#ramdisk=$BUILD_TOP/ramdisk/ramdisk/ls980.lz4
 		break;;
 	"vs980")
 		variant="vs980"
 		config="vs980_defconfig"
-		ramdisk=$BUILD_TOP/ramdisk/ramdisk/vs980.lz4
+		#ramdisk=$BUILD_TOP/ramdisk/ramdisk/vs980.lz4
 		break;;
 	"f320x")
 		variant="f320x"
 		config="f320x_defconfig"
-		ramdisk=$BUILD_TOP/ramdisk/ramdisk/f320x.lz4
+		#ramdisk=$BUILD_TOP/ramdisk/ramdisk/f320x.lz4
 		break;;
 	"l01f")
 		variant="l01f"
@@ -89,44 +90,41 @@ case "$choice" in
 		break;;
 esac
 done
+#echo "Panel variant..."
+#select panel in lgd jdi
+#do
+#case "$panel" in
+#	"lgd")
+#		cmdline="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0 mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd androidboot.selinux=permissive"
+#		break;;
+#	"jdi")
+#		cmdline="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0 mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_jdi_cmd androidboot.selinux=permissive"
+#		break;;
+#esac
+#done
 
-echo "Panel variant..."
-select panel in lgd jdi
-do
-case "$panel" in
-	"lgd")
-		cmdline="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0 mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd androidboot.selinux=permissive"
-		break;;
-	"jdi")
-		cmdline="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0 mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_jdi_cmd androidboot.selinux=permissive"
-		break;;
-esac
-done
-
-echo "Pick target..."
-select target in lg aosp
-do
-case "$target" in
-	"lg")
-		# Already set
-		rdflag=1
-		rom="LG"
-		break;;
-	"aosp")
+#echo "Pick target..."
+#select target in lg aosp
+#do
+#case "$target" in
+#	"lg")
+#		# Already set
+#		rdflag=1
+#		rom="LG"
+#		break;;
+#	"aosp")
 		rdflag=2
 		rom="LP"
 		ramdisk=$BUILD_TOP/ramdisk/ramdisk_android_L
-		break;;
-esac
-done
+#		break;;
+#esac
+#done
 }
 
 # Functions
 function clean_all {
 		rm -rf $MODULES_DIR/*
-		cd $ZIP_MOVE
-		rm -rf $KERNEL
-		rm -rf $DTBIMAGE
+		rm -rf $BUILD_TOP/out/g2/ozip/$KERNEL
 		cd $KERNEL_DIR
 		echo
 		make clean && make mrproper
@@ -135,13 +133,16 @@ function clean_all {
 
 function make_kernel {
 		cd $KERNEL_DIR
+		echo -e "${blink_red}"
+		echo "Building kernel . . . "
+		echo -e "${restore}"
 		make $config > /dev/null
 		time make $THREAD > /dev/null
 		cp -vr $ZIMAGE_DIR/zImage $BUILD_TOP/out/g2/ozip/
+		cd $BUILD_TOP
 }
 
 function make_modules {
-		rm `echo $MODULES_DIR"/*"`
 		find $KERNEL_DIR -name '*.ko' -exec cp -v {} $MODULES_DIR \;
 }
 
@@ -150,21 +151,20 @@ function make_dtb {
 }
 
 function make_zip {
+		if [ -f $BUILD_TOP/out/g2/ozip/zImage ]; then
 		cd $REPACK_DIR
 		zip -r9 RenderKernel-CM12_"$variant"-R.zip *
-		mv RenderKernel-CM12_"$variant"-R.zip $OUT_DIR
-		cd $OUT_DIR
+		mkdir -p $OUT_DIR/$variant/$CURRENTDATE
+		mv RenderKernel-CM12_"$variant"-R.zip $OUT_DIR/$variant/$CURRENTDATE
+		cd $OUT_DIR/$variant/$CURRENTDATE
 		md5sum RenderKernel-CM12_"$variant"-R.zip > RenderKernel-CM12_"$variant"-R.zip.md5
 		cd $BUILD_TOP
+		else
+		echo "Please run make_build first"
+		fi
 }
 
-
-DATE_START=$(date +"%s")
-
-echo -e "${green}"
-echo "Render Kernel Creation Script:"
-echo -e "${restore}"
-
+function make_clean(){
 while read -p "Do you want to clean stuffs (y/n)? " cchoice
 do
 case "$cchoice" in
@@ -184,10 +184,9 @@ case "$cchoice" in
 		;;
 esac
 done
-
-echo
-
-while read -p "Do you want to build kernel (y/n)? " dchoice
+}
+function make_build(){
+	while read -p "Do you want to run a full build (y/n)? " dchoice
 do
 case "$dchoice" in
 	y|Y)
@@ -208,7 +207,16 @@ case "$dchoice" in
 		;;
 esac
 done
+}
 
+function build_render(){
+DATE_START=$(date +"%s")
+
+echo -e "${green}"
+echo "Render Kernel Creation Script:"
+echo -e "${restore}"
+make_clean
+make_build
 echo -e "${green}"
 echo "-------------------"
 echo "Build Completed in:"
@@ -219,3 +227,4 @@ DATE_END=$(date +"%s")
 DIFF=$(($DATE_END - $DATE_START))
 echo "Time: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds."
 echo
+}
